@@ -11,6 +11,7 @@ fn main() {
     // All variables in Rust are immutable by default
     let phrase = prompt_phrase();
     let shift = prompt_shift();
+    let direction = prompt_direction();
 
     /*
      * Rust has concepts of "Ownership" and "Borrowing". Assigning values to
@@ -33,7 +34,7 @@ fn main() {
      *
      * https://medium.com/better-programming/rust-ownership-and-borrowing-9cf7f081ade0
      */
-    let processed = process_phrase(&phrase, &shift);
+    let processed = process_phrase(&phrase, &shift, &direction);
 
     println!("");
     println!("    {}", phrase);
@@ -129,6 +130,11 @@ fn prompt_shift() -> u8 {
          */
         match trimmed.parse::<u8>() {
             Ok(i) => {
+                if i > 26 {
+                    println!("Please enter a valid number.");
+                    continue;
+                }
+
                 shift = i;
                 break;
             }
@@ -142,13 +148,49 @@ fn prompt_shift() -> u8 {
     shift
 }
 
+fn prompt_direction() -> char {
+    let mut direction = 'e';
+
+    loop {
+        let mut buf = String::new();
+
+        print!("Are you encrypting or decrypting? [E/d]: ");
+        // We flush the stdout so the above print is shown in the console _before_
+        // the user can type.
+        io::stdout().flush().unwrap();
+        io::stdin()
+            .read_line(&mut buf)
+            .expect("Unable to read input");
+
+        let entered = buf.trim();
+
+        if entered.is_empty() {
+            break;
+        }
+
+        let first = buf.to_ascii_lowercase().chars().next().unwrap();
+        if first == 'e' || first == 'd' {
+            direction = first;
+            break;
+        }
+    }
+
+    direction
+}
+
 /**
  * This is how our functions can recieve borrowed values. In the signature, we
  * mark which ones are references with the ampersand.
  *
  * fn my_func(take_ownership: String, borrowed: &String) -> String {}
  */
-fn process_phrase(phrase: &String, shift: &u8) -> String {
+fn process_phrase(phrase: &String, shift: &u8, direction: &char) -> String {
+    let mut offset = *shift;
+
+    if *direction == 'd' {
+        offset = 26 - offset;
+    };
+
     /*
      * Since the user has entered a phrase already, we can preallocate memory
      * for our processed phrase, since it will be the same length.
@@ -163,7 +205,8 @@ fn process_phrase(phrase: &String, shift: &u8) -> String {
             // case to u8. We'll use this to calc the new ASCII address
             // http://www.asciitable.com/
             let case = if letter.is_uppercase() { 'A' } else { 'a' } as u8;
-            let total_shift = ((letter as u8 + shift - case) % 26) + case;
+            // let total_shift = ((letter as u8 + offset - case) % 26) + case;
+            let total_shift = (letter as u8 - case + offset) % 26 + case;
             // Cast the ASCII address to a character and push it onto the end of
             // our string.
             processed.push(total_shift as char);
